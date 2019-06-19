@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  VPCID:
+    Type: 'AWS::EC2::VPC::Id'
+  ALBNAME:
+    Type: String
+    Default: proxy-xmdvpc-devel
+  ESDOMAIN:
+    Type: String
+  HOSTZONE:
+    Type: String
+    Default: "nbi-prod.local."
+  TARGETIP:
+    Type: String
+  PRIORITY:
+    Type: Number
+    Default: 1
+  SUBNETPUBLIC1A:
+    Type: 'AWS::EC2::Subnet::Id'
+  SUBNETPUBLIC1C:
+    Type: 'AWS::EC2::Subnet::Id'
+  ACMARN:
+    Type: String
+  OFFICEIP:
+    Type: String
+    Default: "219.119.139.124/32"
+Resources:
+  ALBSECURITYGROUP:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+         VpcId: !Ref VPCID
+         GroupName: !Ref ALBNAME
+         GroupDescription: "ELB Serurity Group"
+         SecurityGroupIngress:
+              -
+                  CidrIp: !Ref OFFICEIP
+                  IpProtocol: tcp
+                  FromPort: 443
+                  ToPort: 443
+              -
+                  CidrIp: !Ref OFFICEIP
+                  IpProtocol: tcp
+                  FromPort: 80
+                  ToPort: 80
+         Tags:
+           - Key: Name
+             Value: !Ref ALBNAME
+  ALB:
+     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+     Properties:
+       Name: !Ref ALBNAME
+       SecurityGroups:
+         - !Ref ALBSECURITYGROUP
+       IpAddressType: 'ipv4'
+       Scheme: 'internet-facing'
+       Subnets:
+         - !Ref SUBNETPUBLIC1A
+         - !Ref SUBNETPUBLIC1C
+  HTTPLISTENER:
+     Type: AWS::ElasticLoadBalancingV2::Listener
+     Properties:
+       DefaultActions:
+         - Type: 'fixed-response'
+           FixedResponseConfig:
+             StatusCode: 503
+       LoadBalancerArn: !Ref ALB
+       Port: '443'
+       Protocol: 'HTTPS'
+       Certificates:
+         - CertificateArn: !Ref ACMARN
+  HTTPLISTENER80:
+      Type: AWS::ElasticLoadBalancingV2::Listener
+      Properties:
+        DefaultActions:
+          - Type: 'fixed-response'
+            FixedResponseConfig:
+              StatusCode: 503
+        LoadBalancerArn: !Ref ALB
+        Port: '80'
+        Protocol: 'HTTP'
+  TARGETGROUP:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Name: !Ref ESDOMAIN
+      VpcId: !Ref VPCID
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckPort: '443'
+      HealthCheckProtocol: HTTPS
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: '200'
+      Port: '443'
+      Protocol: HTTPS
+      TargetType: ip
+      Targets:
+        - Id: !Ref TARGETIP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 300
+  LISTENERRULE:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    DependsOn: ALB
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TARGETGROUP
+      Conditions:
+        - Field: host-header
+          Values:
+            - !Sub ${ESDOMAIN}-es.${HOSTZONE}*
+      ListenerArn: !Ref HTTPLISTENER
+      Priority: !Ref PRIORITY
+  ROUTE53RECORDSET:
+    Type: AWS::Route53::RecordSetGroup
+    DependsOn: ALB
+    Properties:
+      HostedZoneName: !Ref HOSTZONE
+      Comment: DNS name for my instance.
+      RecordSets:
+        - Name: !Sub ${ESDOMAIN}-es.${HOSTZONE}
+          Type: A
+          AliasTarget:
+            DNSName: !GetAtt ALB.DNSName
+            HostedZoneId: !GetAtt ALB.CanonicalHostedZoneID
+Outputs:
+  ALBHOSTEDZONEID:
+    Value: !GetAtt ALB.CanonicalHostedZoneID
+  LISTENERARN:
+    Value: !Ref HTTPLISTENER
+  ALBSECURITYGROUP:
+    Value: !Ref ALBSECURITYGROUP
+  LOADBALANCERARN:
+    Value: !Ref ALB
+  TARGETGROUPARN:
+    Value: !Ref TARGETGROUP
+  ALBDNSNAME:
+    Value: !GetAtt ALB.DNSName

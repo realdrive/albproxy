@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFormation Nest Template Parent
+Parameters:
+  SUBNETPUBLIC1A:
+    Type: 'AWS::EC2::Subnet::Id'
+  SUBNETPUBLIC1C:
+    Type: 'AWS::EC2::Subnet::Id'
+  VPCID:
+    Type: 'AWS::EC2::VPC::Id'
+  ALBNAME:
+    Type: String
+  ESDOMAIN:
+    Type: String
+  HOSTZONE:
+    Type: String
+  TARGETIP:
+    Type: String
+  PRIORITY:
+    Type: Number
+    Default: 10
+  SUBNETPUBLIC1A:
+    Type: 'AWS::EC2::Subnet::Id'
+  SUBNETPUBLIC1C:
+    Type: 'AWS::EC2::Subnet::Id'
+  ACMARN:
+    Type: String
+  OFFICEIP:
+    Type: String
+    Default: "219.119.139.124/32"
+  ESDOMAINCHILD01:
+    Type: String
+    Default: ''
+  TARGETIPCHILD01:
+    Type: String
+    Default: ''
+  PRIORITYCHILD01:
+    Type: String
+    Default: '20'
+  ESDOMAINCHILD02:
+    Type: String
+    Default: ''
+  TARGETIPCHILD02:
+    Type: String
+    Default: ''
+  PRIORITYCHILD02:
+    Type: String
+    Default: '30'
+  ESDOMAINCHILD03:
+    Type: String
+    Default: ''
+  TARGETIPCHILD03:
+    Type: String
+    Default: ''
+  PRIORITYCHILD03:
+    Type: String
+    Default: '40'
+Resources:
+  CREATEALB:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: ./albproxy_parent.yml
+      Parameters:
+        VPCID: !Ref VPCID
+        ALBNAME: !Ref ALBNAME
+        ESDOMAIN: !Ref ESDOMAIN
+        OFFICEIP: !Ref OFFICEIP
+        ACMARN: !Ref ACMARN
+        TARGETIP: !Ref TARGETIP
+        SUBNETPUBLIC1A: !Ref SUBNETPUBLIC1A
+        SUBNETPUBLIC1C: !Ref SUBNETPUBLIC1C
+        HOSTZONE: !Ref HOSTZONE
+  CHILD01:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: ./albproxy_child.yml
+      Parameters:
+        ESDOMAIN: !Ref ESDOMAINCHILD01
+        TARGETIP: !Ref TARGETIPCHILD01
+        PRIORITY: !Ref PRIORITYCHILD01
+        VPCID: !Ref VPCID
+        ACMARN: !Ref ACMARN
+        HOSTZONE: !Ref HOSTZONE
+        LOADBALANCERARN: !GetAtt
+          - CREATEALB
+          - Outputs.LOADBALANCERARN
+        ALBHOSTEDZONEID: !GetAtt
+          - CREATEALB
+          - Outputs.ALBHOSTEDZONEID
+        ALBDNSNAME: !GetAtt
+          - CREATEALB
+          - Outputs.ALBDNSNAME
+  CHILD02:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: ./albproxy_child.yml
+      Parameters:
+        ESDOMAIN: !Ref ESDOMAINCHILD02
+        TARGETIP: !Ref TARGETIPCHILD02
+        PRIORITY: !Ref PRIORITYCHILD02
+        VPCID: !Ref VPCID
+        ACMARN: !Ref ACMARN
+        HOSTZONE: !Ref HOSTZONE
+        LOADBALANCERARN: !GetAtt
+          - CREATEALB
+          - Outputs.LOADBALANCERARN
+        ALBHOSTEDZONEID: !GetAtt
+          - CREATEALB
+          - Outputs.ALBHOSTEDZONEID
+        ALBDNSNAME: !GetAtt
+          - CREATEALB
+          - Outputs.ALBDNSNAME
+  CHILD03:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: ./albproxy_child.yml
+      Parameters:
+        ESDOMAIN: !Ref ESDOMAINCHILD03
+        TARGETIP: !Ref TARGETIPCHILD03
+        PRIORITY: !Ref PRIORITYCHILD03
+        VPCID: !Ref VPCID
+        ACMARN: !Ref ACMARN
+        HOSTZONE: !Ref HOSTZONE
+        LOADBALANCERARN: !GetAtt
+          - CREATEALB
+          - Outputs.LOADBALANCERARN
+        ALBHOSTEDZONEID: !GetAtt
+          - CREATEALB
+          - Outputs.ALBHOSTEDZONEID
+        ALBDNSNAME: !GetAtt
+          - CREATEALB
+          - Outputs.ALBDNSNAME

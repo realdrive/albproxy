@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFormation Nest Template Parent
+Parameters:
+  SUBNETPUBLIC1A:
+    Type: AWS::EC2::Subnet::Id
+  SUBNETPUBLIC1C:
+    Type: AWS::EC2::Subnet::Id
+  VPCID:
+    Type: AWS::EC2::VPC::Id
+  ALBNAME:
+    Type: String
+    Default: proxy-xmdvpc-devel
+  ESDOMAIN:
+    Type: String
+  HOSTZONE:
+    Type: String
+    Default: nbi-prod.local
+  TARGETIP:
+    Type: String
+  PRIORITY:
+    Type: Number
+    Default: 10
+  ACMARN:
+    Type: String
+  OFFICEIP:
+    Type: String
+    Default: 219.119.139.124/32
+  ESDOMAINCHILD01:
+    Type: String
+    Default: ''
+  TARGETIPCHILD01:
+    Type: String
+    Default: ''
+  PRIORITYCHILD01:
+    Type: String
+    Default: '10'
+Resources:
+  CREATEALB:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/xmdio-private-devel/cfn/42fb733cc5bc4a6982551e217879d435.template
+      Parameters:
+        VPCID:
+          Ref: VPCID
+        ALBNAME:
+          Ref: ALBNAME
+        ESDOMAIN:
+          Ref: ESDOMAIN
+        OFFICEIP:
+          Ref: OFFICEIP
+        ACMARN:
+          Ref: ACMARN
+        TARGETIP:
+          Ref: TARGETIP
+        SUBNETPUBLIC1A:
+          Ref: SUBNETPUBLIC1A
+        SUBNETPUBLIC1C:
+          Ref: SUBNETPUBLIC1C
+        HOSTZONE:
+          Ref: HOSTZONE
+  CHILD01:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/xmdio-private-devel/cfn/59a6d07ce7834aebc0727d9f540c1ef9.template
+      Parameters:
+        ESDOMAIN:
+          Ref: ESDOMAINCHILD01
+        TARGETIP:
+          Ref: TARGETIPCHILD01
+        PRIORITY:
+          Ref: PRIORITYCHILD01
+        VPCID:
+          Ref: VPCID
+        ACMARN:
+          Ref: ACMARN
+        HOSTZONE:
+          Ref: HOSTZONE
+        LOADBALANCERARN:
+          Fn::GetAtt:
+          - CREATEALB
+          - Outputs.LOADBALANCERARN
+        ALBHOSTEDZONEID:
+          Fn::GetAtt:
+          - CREATEALB
+          - Outputs.ALBHOSTEDZONEID
+        ALBDNSNAME:
+          Fn::GetAtt:
+          - CREATEALB
+          - Outputs.ALBDNSNAME
