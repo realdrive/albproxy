@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Elasticbeanstalk webapp-hpcr-v2
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: webapp-hpcr-v2
+  CNAMEPrefix:
+    Type: String
+    Default: webapp-hpcr-v2
+  EnvironmentName:
+    Type: String
+    Default: hpcrtube-dev
+  InstanceProfile:
+    Type: String
+    Default: 'aws-elasticbeanstalk-ec2-role'
+  ServiceRole:
+    Type: String
+    Default: 'aws-elasticbeanstalk-service-role'
+  SolutionStackName:
+    Type: String
+    Default: 64bit Amazon Linux 2018.03 v4.9.2 running Node.js
+    AllowedValues:
+      - 64bit Amazon Linux 2018.03 v4.9.2 running Node.js
+      - 64bit Amazon Linux 2017.03 v2.5.0 running Python 2.7
+      - 64bit Amazon Linux running PHP 5.3
+  PlatformArn:
+    Type: String
+    Default: >-
+      arn:aws:elasticbeanstalk:ap-northeast-1::platform/Node.js running on 64bit
+      Amazon Linux/4.9.2
+  InstancePort:
+    Type: String
+    Default: 80
+  VPCID:
+    Type: 'AWS::EC2::VPC::Id'
+    Default: ''
+  SUBNETID:
+    Type: 'AWS::EC2::Subnet::Id'
+  SUBNETIDDUAL:
+    Type: 'AWS::EC2::Subnet::Id'
+  ACMARN:
+    Type: String
+    Default: >-
+      arn:aws:acm:ap-northeast-1:258706428959:certificate/8e3cd831-c636-46a8-9de3-fe9e21eda754
+  KEYPAIR:
+    Type: String
+    Default: aws_vpc
+  AMIID:
+    Type: String
+    Default: ami-040ee120713ee2717
+    AllowedValues:
+      - ami-040ee120713ee2717
+      - ami-0b4d014c865dc5f4b
+Conditions:
+  DUALSUBNET: !Not [!Equals [ !Ref SUBNETIDDUAL, '']]
+Resources:
+  Application:
+    Properties:
+      ApplicationName: !Ref ApplicationName
+      ApplicationVersions:
+        - Description: Version 1.0
+          SourceBundle:
+            S3Bucket: !Join
+              - ''
+              - - elasticbeanstalk-samples-
+                - !Ref 'AWS::Region'
+            S3Key: python-sample-20150402.zip
+          VersionLabel: Initial Version
+      Description: AWS Elastic Beanstalk Python Sample Application
+    Type: 'AWS::ElasticBeanstalk::Application'
+  Environment:
+    Properties:
+      EnvironmentName: !Ref EnvironmentName
+      CNAMEPrefix: !Ref CNAMEPrefix
+      ApplicationName: !Ref Application
+      Description: AWS Elastic Beanstalk Environment running Python Sample Application
+      SolutionStackName: !Ref SolutionStackName
+      VersionLabel: Initial Version
+      OptionSettings:
+        - Namespace: 'aws:autoscaling:launchconfiguration'
+          OptionName: IamInstanceProfile
+          Value: !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/${InstanceProfile}
+        - Namespace: 'aws:elasticbeanstalk:environment'
+          OptionName: ServiceRole
+          Value: !Sub arn:aws:iam::${AWS::AccountId}:role/${ServiceRole}
+        - Namespace: 'aws:ec2:vpc'
+          OptionName: VPCId
+          Value: !Ref VPCID
+        - Namespace: 'aws:ec2:vpc'
+          OptionName: Subnets
+          Value: !If [DUALSUBNET, !Sub '${SUBNETID},${SUBNETIDDUAL}', !Ref SUBNETID ]
+        - Namespace: 'aws:autoscaling:launchconfiguration'
+          OptionName: SSHSourceRestriction
+          Value: 'tcp,22,22,219.119.139.124/32'
+        - Namespace: 'aws:autoscaling:launchconfiguration'
+          OptionName: SecurityGroups
+          Value: !Ref AWSEBSecurityGroup
+        - Namespace: 'aws:autoscaling:launchconfiguration'
+          OptionName: EC2KeyName
+          Value: !Ref KEYPAIR
+        - ResourceName: AWSEBLoadBalancer
+          Namespace: 'aws:elb:listener:443'
+          OptionName: InstancePort
+          Value: !Ref InstancePort
+        - ResourceName: AWSEBLoadBalancer
+          Namespace: 'aws:elb:listener:443'
+          OptionName: InstanceProtocol
+          Value: HTTP
+        - ResourceName: AWSEBLoadBalancer
+          Namespace: 'aws:elb:listener:443'
+          OptionName: ListenerEnabled
+          Value: 'true'
+        - ResourceName: AWSEBLoadBalancer
+          Namespace: 'aws:elb:listener:443'
+          OptionName: ListenerProtocol
+          Value: HTTPS
+        - ResourceName: AWSEBLoadBalancer
+          Namespace: 'aws:elb:listener:443'
+          OptionName: SSLCertificateId
+          Value: !Ref ACMARN
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: ImageId
+          Value: !Ref AMIID
+    Type: 'AWS::ElasticBeanstalk::Environment'
+  AWSEBSecurityGroup:
+    Properties:
+      GroupDescription: VPC Security Group
+      GroupName: !Ref EnvironmentName
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - CidrIp: 219.119.139.124/32
+          FromPort: '22'
+          ToPort: '22'
+          IpProtocol: tcp
+        - CidrIp: 172.31.0.0/16
+          FromPort: '22'
+          ToPort: '22'
+          IpProtocol: tcp
+        - CidrIp: 10.0.0.0/16
+          FromPort: '22'
+          ToPort: '22'
+          IpProtocol: tcp
+        - CidrIp: 10.255.0.0/16
+          FromPort: '22'
+          ToPort: '22'
+          IpProtocol: tcp
+    Type: 'AWS::EC2::SecurityGroup'
